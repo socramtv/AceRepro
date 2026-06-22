@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ace Stream PlayerJS Station</title>
+    
+    <script src="playerjs.js" type="text/javascript"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f0f12;
+            color: #f0f0f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 30px 0;
+        }
+        .player-container {
+            width: 90%;
+            max-width: 850px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        h1 span {
+            color: #00e676;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #787880;
+            margin-bottom: 25px;
+        }
+        
+        /* Zona de carga M3U */
+        .upload-box {
+            background-color: #1a1a22;
+            border: 2px dashed #2d2d37;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .upload-box:hover {
+            border-color: #00e676;
+        }
+        .upload-box label {
+            display: block;
+            font-size: 0.9rem;
+            color: #00e676;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .upload-box input[type="file"] {
+            display: none;
+        }
+
+        /* Contenedor del desplegable */
+        .selector-box {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .selector-box label {
+            display: block;
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #1a1a22;
+            color: #f0f0f5;
+            border: 1px solid #2d2d37;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            border-color: #00e676;
+        }
+        optgroup {
+            background-color: #0f0f12;
+            color: #00e676;
+            font-style: normal;
+            font-weight: 600;
+        }
+        option {
+            color: #f0f0f5;
+            background-color: #1a1a22;
+            padding: 8px;
+        }
+
+        /* Contenedor adaptado para PlayerJS */
+        .video-box {
+            width: 100%;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            border: 1px solid #23232a;
+            aspect-ratio: 16 / 9; /* Mantiene la proporción perfecta del reproductor */
+        }
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="player-container">
+    <h1>Ace Stream <span>PlayerJS Edition</span></h1>
+    <div class="subtitle">Disfruta de tus canales con una interfaz avanzada de reproducción</div>
+    
+    <div class="upload-box">
+        <label for="m3u-file">📂 Cargar lista .m3u personalizada para PlayerJS</label>
+        <input type="file" id="m3u-file" accept=".m3u,.m3u8">
+    </div>
+
+    <div class="selector-box">
+        <label id="lista-label" for="channel-select">Canales Disponibles (Lista Interna):</label>
+        <select id="channel-select">
+            <optgroup label="BALONCESTO">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=9dd9cd78f0b08097a0ad290606dbbee999709fa5">DAZN Baloncesto 720p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=6fbd92735502bdebbf1ea58f4298e49759c0cf07">DAZN Baloncesto 1080p **</option>
+            </optgroup>
+            <optgroup label="EUROSPORT">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=313213b3b99c0f7437f68c8ea5a7b2b6d7b8a153">Eurosport 1 720p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=48a589dbeab3544662fafd79888aada7d834cfe9">Eurosport 1 1080p *</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=8522af51ae7189b12effabbb448dcb707195ce1a">Eurosport 1 1080p **</option>
+            </optgroup>
+            <optgroup label="HYPERMOTION">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=2c54a4def58f41fc0d2163450a63f12955b656aa">LaLiga TV Hypermotion 720p **</option>
+            </optgroup>
+            <optgroup label="LIGA DE CAMPEONES">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=63e4713e8379f2ebf5e6ed9aa00fbf78ebae7439">M+ Liga de Campeones 720p *</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=91af434b0bb521189286f8cbbab1aed39d7536fe">M+ Liga de Campeones 1080p **</option>
+            </optgroup>
+            <optgroup label="MOVISTAR">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=1ab443f5b4beb6d586f19e8b25b9f9646cf2ab78">MOVISTAR PLUS 1080p **</option>
+            </optgroup>
+            <optgroup label="MOVISTAR DEPORTES">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=9bb2a7dc6c6a296609df8cc50e742a78194f7530">M+ Golf 1080p *</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=7e4f6eb38e0d5ef52b7f8b96eb80c1d8c87dad16">M+ Vamos 1080p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=a9299052e9a16e5e2924e1fdd00b877c374f9e96">M+ VAMOS 3 1080p * (Opción 1)</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=b46a524780cf0ac5e533491fe79389d6198acf2c">M+ VAMOS 3 1080p * (Opción 2)</option>
+            </optgroup>
+            <optgroup label="TDT">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=379192c3ee5a15570e2c685179bc53cb7133cc6c">La 1 TVE ** (Opción 1)</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=979d3b873871a5a9a56d3eb481ca77b707e01102">La 1 TVE ** (Opción 2)</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=b80cd193286a7df788c07649667c1e6f64fc9dc7">La 2 TVE 1080p **</option>
+            </optgroup>
+            <optgroup label="DEPORTES">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=1b25b195b1b84d4b96830410657718e9e275ad49">Direct Sport 1 1080p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=ed6524f8f73c30cf102fde66f2cb520f4b5842e3">Esport3 720p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=77cf022557c56cdf8d8115f50e61f846ad72ee05">Teledeporte 1080p **</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=59f2d0e15869d73f19d7ac441d5aedffb6c4ebb8">TV5Monde Europe *</option>
+            </optgroup>
+            <optgroup label="MUNDIAL">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=ccfde4bc75d14c79dd09af72434568a0e732d507">Dazn Mundial 1 *</option>
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=414222dc7b69a626f29eb964450dae44b3bc9b36">Dazn Mundial 1 **</option>
+            </optgroup>
+            <optgroup label="TENNIS">
+                <option value="http://127.0.0.1:6878/ace/manifest.m3u8?id=43c549e5781f5a923b76f8f29cde122b5be164eb">Tennis Channel 1080p **</option>
+            </optgroup>
+        </select>
+    </div>
+
+    <div class="video-box">
+        <div id="player"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const selector = document.getElementById('channel-select');
+        const fileInput = document.getElementById('m3u-file');
+        const labelLista = document.getElementById('lista-label');
+        
+        let playerInstance = null;
+
+        // 1. Integración con la API de PlayerJS
+        function cambiarCanal(url) {
+            if (!url) return;
+
+            // Si el reproductor no ha sido creado, lo inicializamos por primera vez
+            if (!playerInstance) {
+                if (typeof Playerjs === "undefined") {
+                    console.error("El archivo 'playerjs.js' no se ha encontrado o no se ha cargado.");
+                    alert("Asegúrate de colocar tu archivo personalizado 'playerjs.js' junto a este archivo HTML.");
+                    return;
+                }
+                
+                playerInstance = new Playerjs({
+                    id: "player",
+                    file: url,
+                    autoplay: 1
+                });
+            } else {
+                // Si ya existe, usamos los métodos de la API para cambiar de flujo fluidamente
+                playerInstance.api("file", url);
+                playerInstance.api("play");
+            }
+        }
+
+        selector.addEventListener('change', (e) => cambiarCanal(e.target.value));
+
+        // 2. Lector M3U integrado
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const canalesProcesados = parsearM3U(event.target.result);
+                if (canalesProcesados.length > 0) {
+                    reconstruirDesplegable(canalesProcesados);
+                    labelLista.textContent = `Canales Disponibles (Lista Cargada: ${file.name})`;
+                } else {
+                    alert("No se encontraron canales válidos en tu lista .m3u");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function parsearM3U(texto) {
+            const lineas = texto.split(/\r?\n/);
+            const listaCanales = [];
+            let canalActual = null;
+
+            for (let i = 0; i < lineas.length; i++) {
+                let linea = lineas[i].trim();
+
+                if (linea.startsWith('#EXTINF:')) {
+                    canalActual = {};
+                    const grupoMatch = linea.match(/group-title="([^"]+)"/i);
+                    canalActual.grupo = grupoMatch ? grupoMatch[1].toUpperCase() : 'GENERAL';
+                    
+                    const comaIndex = linea.lastIndexOf(',');
+                    canalActual.nombre = comaIndex !== -1 ? linea.substring(comaIndex + 1).trim() : 'Canal Directo';
+                } 
+                else if (linea && !linea.startsWith('#')) {
+                    if (canalActual) {
+                        let url = linea;
+                        // Conversión inteligente a formato manifiesto estable
+                        if (url.includes('/ace/getstream?id=')) {
+                            url = url.replace('/ace/getstream?id=', '/ace/manifest.m3u8?id=');
+                        } else if (url.startsWith('acestream://')) {
+                            const id = url.replace('acestream://', '').trim();
+                            url = `http://127.0.0.1:6878/ace/manifest.m3u8?id=${id}`;
+                        }
+                        canalActual.url = url;
+                        listaCanales.push(canalActual);
+                        canalActual = null;
+                    }
+                }
+            }
+            return listaCanales;
+        }
+
+        function reconstruirDesplegable(canales) {
+            selector.innerHTML = '';
+            const grupos = {};
+
+            canales.forEach(canal => {
+                if (!grupos[canal.grupo]) grupos[canal.grupo] = [];
+                grupos[canal.grupo].push(canal);
+            });
+
+            for (const nombreGrupo in grupos) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = nombreGrupo;
+
+                grupos[nombreGrupo].forEach(canal => {
+                    const option = document.createElement('option');
+                    option.value = canal.url;
+                    option.textContent = canal.nombre;
+                    optgroup.appendChild(option);
+                });
+                selector.appendChild(optgroup);
+            }
+
+            if (selector.value) cambiarCanal(selector.value);
+        }
+
+        // Carga inicial automática
+        // Le damos un margen mínimo de 100ms para asegurar que el script de PlayerJS esté totalmente procesado en memoria antes de la primera llamada
+        setTimeout(() => {
+            cambiarCanal(selector.value);
+        }, 100);
+    });
+</script>
+
+</body>
+</html>
