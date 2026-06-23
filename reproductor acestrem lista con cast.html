@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ace Stream PlayerJS Cast Edition</title>
+    
+    <!-- Vincula tu archivo de PlayerJS (con el plugin de Chromecast activado) -->
+    <script src="playerjs.js" type="text/javascript"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f0f12;
+            color: #f0f0f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .player-container {
+            width: 95%;
+            max-width: 900px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        h1 span {
+            color: #00e676;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #787880;
+            margin-bottom: 20px;
+        }
+        
+        /* Panel de Red e IP */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .config-box {
+            background-color: #1a1a22;
+            border: 1px solid #2d2d37;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: left;
+        }
+        .config-box label {
+            display: block;
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .config-box input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #0f0f12;
+            border: 1px solid #3d3d4d;
+            border-radius: 6px;
+            color: #00e676;
+            font-size: 0.95rem;
+            font-family: monospace;
+            outline: none;
+        }
+        .config-box input[type="text"]:focus {
+            border-color: #00e676;
+        }
+        .upload-label {
+            display: block;
+            font-size: 0.9rem;
+            color: #00e676;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 5px;
+        }
+        #m3u-file {
+            display: none;
+        }
+
+        /* Contenedor del reproductor */
+        .video-box {
+            width: 100%;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            border: 1px solid #23232a;
+            aspect-ratio: 16 / 9;
+        }
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="player-container">
+    <h1>Ace Stream <span>Cast Ready</span></h1>
+    <div class="subtitle" id="lista-status">Configura tu IP local para permitir el envío a Chromecast</div>
+    
+    <!-- Panel de Configuración Doble -->
+    <div class="config-grid">
+        <!-- Input de la IP de tu PC -->
+        <div class="config-box">
+            <label for="pc-ip">🔗 IP LOCAL DE TU PC (Ej: 192.168.1.50):</label>
+            <input type="text" id="pc-ip" value="127.0.0.1" placeholder="127.0.0.1">
+        </div>
+        <!-- Carga de listas externas -->
+        <div class="config-box" style="display: flex; align-items: center; justify-content: center;">
+            <label class="upload-label" for="m3u-file">📂 Importar Lista .m3u / .m3u8</label>
+            <input type="file" id="m3u-file" accept=".m3u,.m3u8">
+        </div>
+    </div>
+
+    <!-- Contenedor Único PlayerJS -->
+    <div class="video-box">
+        <div id="player"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const fileInput = document.getElementById('m3u-file');
+        const ipInput = document.getElementById('pc-ip');
+        const statusTxt = document.getElementById('lista-status');
+        let playerInstance = null;
+        let listaActualRaw = ""; // Guarda el texto de la última lista cargada
+
+        // Canales ID fijos internos
+        const canalesIdsBase = [
+            { "grupo": "BALONCESTO", "nombre": "DAZN Baloncesto 720p **", "id": "9dd9cd78f0b08097a0ad290606dbbee999709fa5" },
+            { "grupo": "BALONCESTO", "nombre": "DAZN Baloncesto 1080p **", "id": "6fbd92735502bdebbf1ea58f4298e49759c0cf07" },
+            { "grupo": "EUROSPORT", "nombre": "Eurosport 1 720p **", "id": "313213b3b99c0f7437f68c8ea5a7b2b6d7b8a153" },
+            { "grupo": "EUROSPORT", "nombre": "Eurosport 1 1080p *", "id": "48a589dbeab3544662fafd79888aada7d834cfe9" },
+            { "grupo": "EUROSPORT", "nombre": "Eurosport 1 1080p **", "id": "8522af51ae7189b12effabbb448dcb707195ce1a" },
+            { "grupo": "HYPERMOTION", "nombre": "LaLiga TV Hypermotion 720p **", "id": "2c54a4def58f41fc0d2163450a63f12955b656aa" },
+            { "grupo": "LIGA DE CAMPEONES", "nombre": "M+ Liga de Campeones 720p *", "id": "63e4713e8379f2ebf5e6ed9aa00fbf78ebae7439" },
+            { "grupo": "LIGA DE CAMPEONES", "nombre": "M+ Liga de Campeones 1080p **", "id": "91af434b0bb521189286f8cbbab1aed39d7536fe" },
+            { "grupo": "MOVISTAR", "nombre": "MOVISTAR PLUS 1080p **", "id": "1ab443f5b4beb6d586f19e8b25b9f9646cf2ab78" },
+            { "grupo": "MOVISTAR DEPORTES", "nombre": "M+ Golf 1080p *", "id": "9bb2a7dc6c6a296609df8cc50e742a78194f7530" },
+            { "grupo": "MOVISTAR DEPORTES", "nombre": "M+ Vamos 1080p **", "id": "7e4f6eb38e0d5ef52b7f8b96eb80c1d8c87dad16" },
+            { "grupo": "MOVISTAR DEPORTES", "nombre": "M+ VAMOS 3 1080p * (Opción 1)", "id": "a9299052e9a16e5e2924e1fdd00b877c374f9e96" },
+            { "grupo": "MOVISTAR DEPORTES", "nombre": "M+ VAMOS 3 1080p * (Opción 2)", "id": "b46a524780cf0ac5e533491fe79389d6198acf2c" },
+            { "grupo": "TDT", "nombre": "La 1 TVE ** (Opción 1)", "id": "379192c3ee5a15570e2c685179bc53cb7133cc6c" },
+            { "grupo": "TDT", "nombre": "La 1 TVE ** (Opción 2)", "id": "979d3b873871a5a9a56d3eb481ca77b707e01102" },
+            { "grupo": "TDT", "nombre": "La 2 TVE 1080p **", "id": "b80cd193286a7df788c07649667c1e6f64fc9dc7" },
+            { "grupo": "DEPORTES", "nombre": "Direct Sport 1 1080p **", "id": "1b25b195b1b84d4b96830410657718e9e275ad49" },
+            { "grupo": "DEPORTES", "nombre": "Esport3 720p **", "id": "ed6524f8f73c30cf102fde66f2cb520f4b5842e3" },
+            { "grupo": "DEPORTES", "nombre": "Teledeporte 1080p **", "id": "77cf022557c56cdf8d8115f50e61f846ad72ee05" },
+            { "grupo": "DEPORTES", "nombre": "TV5Monde Europe *", "id": "59f2d0e15869d73f19d7ac441d5aedffb6c4ebb8" },
+            { "grupo": "MUNDIAL", "nombre": "Dazn Mundial 1 *", "id": "ccfde4bc75d14c79dd09af72434568a0e732d507" },
+            { "grupo": "MUNDIAL", "nombre": "Dazn Mundial 1 **", "id": "414222dc7b69a626f29eb964450dae44b3bc9b36" },
+            { "grupo": "TENNIS", "nombre": "Tennis Channel 1080p **", "id": "43c549e5781f5a923b76f8f29cde122b5be164eb" }
+        ];
+
+        // Genera la estructura JSON de PlayerJS usando la IP definida en el cuadro de texto
+        function generarListaInterna(targetIp) {
+            const mapa = {};
+            canalesIdsBase.forEach(c => {
+                if (!mapa[c.grupo]) mapa[c.grupo] = [];
+                mapa[c.grupo].push({
+                    "title": c.nombre,
+                    "file": `http://${targetIp}:6878/ace/manifest.m3u8?id=${c.id}`
+                });
+            });
+
+            return Object.keys(mapa).map(g => ({ "title": g, "folder": mapa[g] }));
+        }
+
+        // Inicializa o refresca PlayerJS en caliente
+        function refrescarReproductor(playlistArray) {
+            if (playerInstance) {
+                playerInstance.api("file", playlistArray);
+            } else {
+                playerInstance = new Playerjs({
+                    id: "player",
+                    file: playlistArray,
+                    autoplay: 1
+                });
+            }
+        }
+
+        // Evento: Si el usuario cambia la IP, recalculamos toda la lista al instante sin recargar la web
+        ipInput.addEventListener('input', () => {
+            const ip = ipInput.value.trim() || "127.0.0.1";
+            
+            if (listaActualRaw) {
+                // Si hay una lista M3U externa cargada, la reprocesamos con la nueva IP
+                const listaFormateada = procesarM3U(listaActualRaw, ip);
+                refrescarReproductor(listaFormateada);
+            } else {
+                // Si no, actualizamos los canales por defecto
+                const listaPorDefecto = generarListaInterna(ip);
+                refrescarReproductor(listaPorDefecto);
+            }
+        });
+
+        // Lector de archivos M3U
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                listaActualRaw = event.target.result;
+                const ip = ipInput.value.trim() || "127.0.0.1";
+                const listaFormateada = procesarM3U(listaActualRaw, ip);
+                
+                if (listaFormateada.length > 0) {
+                    refrescarReproductor(listaFormateada);
+                    statusTxt.textContent = `Lista cargada y adaptada para la IP ${ip}: ${file.name}`;
+                } else {
+                    alert("M3U inválido.");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Analizador M3U adaptativo (Reemplaza tanto 127.0.0.1 como acestream:// por la IP de red seleccionada)
+        function procesarM3U(texto, targetIp) {
+            const lineas = texto.split(/\r?\n/);
+            const mapaGrupos = {};
+            let canalTemporal = null;
+
+            for (let i = 0; i < lineas.length; i++) {
+                let linea = lineas[i].trim();
+
+                if (linea.startsWith('#EXTINF:')) {
+                    canalTemporal = {};
+                    const grupoMatch = linea.match(/group-title="([^"]+)"/i);
+                    canalTemporal.grupo = grupoMatch ? grupoMatch[1].toUpperCase() : 'CANALES EXTERNOS';
+                    
+                    const comaIndex = linea.lastIndexOf(',');
+                    canalTemporal.title = comaIndex !== -1 ? linea.substring(comaIndex + 1).trim() : 'Canal IPTV';
+                } 
+                else if (linea && !linea.startsWith('#')) {
+                    if (canalTemporal) {
+                        let url = linea;
+
+                        // Caso 1: Viene con localhost/127.0.0.1 -> Reemplazamos por la IP de red real
+                        if (url.includes('/ace/getstream?id=')) {
+                            const id = url.split('id=')[1];
+                            url = `http://${targetIp}:6878/ace/manifest.m3u8?id=${id}`;
+                        } else if (url.includes('/ace/manifest.m3u8?id=')) {
+                            const id = url.split('id=')[1];
+                            url = `http://${targetIp}:6878/ace/manifest.m3u8?id=${id}`;
+                        }
+                        // Caso 2: Viene en formato nativo acestream://
+                        else if (url.startsWith('acestream://')) {
+                            const id = url.replace('acestream://', '').trim();
+                            url = `http://${targetIp}:6878/ace/manifest.m3u8?id=${id}`;
+                        }
+
+                        canalTemporal.file = url;
+
+                        if (!mapaGrupos[canalTemporal.grupo]) mapaGrupos[canalTemporal.grupo] = [];
+                        mapaGrupos[canalTemporal.grupo].push({
+                            "title": canalTemporal.title,
+                            "file": canalTemporal.file
+                        });
+
+                        canalTemporal = null;
+                    }
+                }
+            }
+
+            return Object.keys(mapaGrupos).map(g => ({ "title": g, "folder": mapaGrupos[g] }));
+        }
+
+        // Inicio automático diferido
+        setTimeout(() => {
+            refrescarReproductor(generarListaInterna("127.0.0.1"));
+        }, 120);
+    });
+</script>
+
+</body>
+</html>
