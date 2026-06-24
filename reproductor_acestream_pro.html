@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>StreamHub Pro — Ace & IPTV</title>
+    <meta name="description" content="Reproductor Ace Stream e IPTV con TDT, Rakuten y Runtime TV">
+    <meta name="theme-color" content="#0a0a10">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StreamHub">
+    <link rel="manifest" href="manifest.json">
+
+    <script src="playerjs.js" type="text/javascript"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        :root {
+            --bg-deep:    #07070d;
+            --bg-base:    #0d0d16;
+            --bg-card:    #13131f;
+            --bg-hover:   #1a1a2a;
+            --border:     #1e1e2e;
+            --border-lit: #2e2e4a;
+            --accent:     #6c63ff;
+            --accent-glow:rgba(108,99,255,0.28);
+            --ace:        #00e5a0;
+            --ace-glow:   rgba(0,229,160,0.22);
+            --text-pri:   #eeeef5;
+            --text-sec:   #7a7a9a;
+            --text-dim:   #44445a;
+            --red:        #ff4d6a;
+            --amber:      #ffc43d;
+            --radius-lg:  14px;
+            --radius-md:  10px;
+            --radius-sm:  7px;
+            --font:       'Inter', system-ui, sans-serif;
+            --mono:       'JetBrains Mono', monospace;
+            --shadow-deep: 0 24px 60px rgba(0,0,0,0.7);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-pri);
+            font-family: var(--font);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 40px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(108,99,255,0.07) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 980px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent) 0%, #9b8fff 100%);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 0 20px var(--accent-glow);
+            flex-shrink: 0;
+        }
+
+        .brand-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+            color: var(--text-pri);
+        }
+
+        .brand-text p {
+            font-size: 0.72rem;
+            color: var(--text-sec);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Install button */
+        #btn-install {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--accent), #9b8fff);
+            border: none;
+            color: #fff;
+            padding: 9px 16px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 18px var(--accent-glow);
+            transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+            white-space: nowrap;
+        }
+        #btn-install:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 28px var(--accent-glow);
+        }
+        #btn-install:active { transform: scale(0.97); }
+        #btn-install.visible { display: flex; }
+
+        /* ── Status bar ── */
+        .status-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: var(--text-sec);
+            min-height: 42px;
+            transition: border-color 0.3s;
+        }
+        .status-bar.ok  { border-color: var(--ace); }
+        .status-bar.err { border-color: var(--red); }
+        .status-bar.loading { border-color: var(--amber); }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .status-bar.ok .status-dot     { background: var(--ace); box-shadow: 0 0 8px var(--ace-glow); animation: pulse-dot 2s infinite; }
+        .status-bar.err .status-dot    { background: var(--red); }
+        .status-bar.loading .status-dot{ background: var(--amber); animation: pulse-dot 1s infinite; }
+
+        @keyframes pulse-dot {
+            0%,100% { opacity: 1; }
+            50%      { opacity: 0.35; }
+        }
+
+        #status-text { flex: 1; }
+
+        /* Source tag */
+        .source-tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-lit);
+            border-radius: 4px;
+            padding: 2px 7px;
+            color: var(--text-dim);
+            display: none;
+        }
+        .source-tag.visible { display: inline-block; }
+
+        /* ── Selector tabs ── */
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 560px) {
+            .tabs { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .tab-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-sec);
+            padding: 11px 10px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: var(--font);
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.18s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--accent), #9b8fff);
+            opacity: 0;
+            transition: opacity 0.18s;
+        }
+
+        .tab-btn span { position: relative; z-index: 1; }
+
+        .tab-btn:hover {
+            border-color: var(--border-lit);
+            color: var(--text-pri);
+        }
+
+        .tab-btn.active {
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 18px var(--accent-glow);
+        }
+        .tab-btn.active::after { opacity: 1; }
+
+        .tab-btn .icon { font-size: 1rem; position: relative; z-index: 1; }
+
+        /* Ace tab override – green accent */
+        .tab-btn.ace-tab.active {
+            border-color: var(--ace);
+            box-shadow: 0 0 18px var(--ace-glow);
+        }
+        .tab-btn.ace-tab.active::after {
+            background: linear-gradient(135deg, var(--ace), #00c97a);
+        }
+
+        /* ── Upload zone ── */
+        .upload-zone {
+            border: 1.5px dashed var(--border-lit);
+            border-radius: var(--radius-md);
+            padding: 11px 16px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(108,99,255,0.04);
+        }
+        .upload-zone label {
+            font-size: 0.8rem;
+            color: var(--text-sec);
+            cursor: pointer;
+            flex: 1;
+        }
+        .upload-zone .up-icon { font-size: 1.1rem; }
+        .upload-zone input[type="file"] { display: none; }
+        .upload-zone .up-badge {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-lit);
+            border-radius: 4px;
+            padding: 2px 6px;
+            color: var(--text-dim);
+        }
+
+        /* ── Video player box ── */
+        .video-wrap {
+            width: 100%;
+            background: #000;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-deep), 0 0 0 1px var(--border);
+            aspect-ratio: 16 / 9;
+            position: relative;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: var(--bg-base);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            z-index: 10;
+            opacity: 1;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        .loading-overlay.hidden { opacity: 0; }
+
+        .loader-ring {
+            width: 44px;
+            height: 44px;
+            border: 3px solid var(--border-lit);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loader-text {
+            font-size: 0.78rem;
+            color: var(--text-sec);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            flex-wrap: wrap;
+        }
+        .footer a {
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .footer a:hover { color: var(--text-sec); }
+        .footer-sep { color: var(--border-lit); }
+
+        /* ── PWA toast ── */
+        #install-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-md);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            z-index: 9999;
+            transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
+            max-width: 360px;
+            width: calc(100% - 32px);
+        }
+        #install-toast.show { transform: translateX(-50%) translateY(0); }
+        #install-toast .toast-icon { font-size: 1.4rem; flex-shrink: 0; }
+        #install-toast .toast-body { flex: 1; }
+        #install-toast .toast-body strong { display: block; font-size: 0.85rem; color: var(--text-pri); }
+        #install-toast .toast-body span  { font-size: 0.75rem; color: var(--text-sec); }
+        #install-toast-accept {
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            border-radius: var(--radius-sm);
+            padding: 7px 13px;
+            font-family: var(--font);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #install-toast-dismiss {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="brand">
+            <div class="brand-icon">📡</div>
+            <div class="brand-text">
+                <h1>StreamHub <span style="color:var(--accent)">Pro</span></h1>
+                <p>Ace Stream · IPTV · TDT · Rakuten</p>
+            </div>
+        </div>
+        <button id="btn-install" aria-label="Instalar aplicación">
+            ⬇️ Instalar App
+        </button>
+    </header>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="status-bar">
+        <div class="status-dot"></div>
+        <span id="status-text">Iniciando canales...</span>
+        <span class="source-tag" id="source-tag">ACE</span>
+    </div>
+
+    <!-- Source tabs -->
+    <div class="tabs" role="tablist">
+        <button id="btn-acestream" class="tab-btn ace-tab active" role="tab" aria-selected="true">
+            <span class="icon">⚡</span><span>Ace Stream</span>
+        </button>
+        <button id="btn-tdt" class="tab-btn" role="tab" aria-selected="false">
+            <span class="icon">📺</span><span>TDT</span>
+        </button>
+        <button id="btn-runtime" class="tab-btn" role="tab" aria-selected="false">
+            <span class="icon">🎬</span><span>Runtime TV</span>
+        </button>
+        <button id="btn-rakuten" class="tab-btn" role="tab" aria-selected="false">
+            <span class="icon">🔴</span><span>Rakuten TV</span>
+        </button>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="upload-zone" onclick="document.getElementById('m3u-file').click()">
+        <span class="up-icon">📂</span>
+        <label for="m3u-file">Cargar lista local desde tu dispositivo</label>
+        <span class="up-badge">.m3u / .m3u8</span>
+        <input type="file" id="m3u-file" accept=".m3u,.m3u8">
+    </div>
+
+    <!-- Player -->
+    <div class="video-wrap">
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loader-ring"></div>
+            <span class="loader-text">Cargando canales...</span>
+        </div>
+        <div id="player"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <span>StreamHub Pro</span>
+        <span class="footer-sep">·</span>
+        <span>Requiere motor AceStream local en <code style="color:var(--text-sec)">127.0.0.1:6878</code></span>
+        <span class="footer-sep">·</span>
+        <a href="#" onclick="mostrarAyuda(); return false;">Ayuda</a>
+    </footer>
+
+</div>
+
+<!-- PWA toast -->
+<div id="install-toast" role="dialog" aria-label="Instalar app">
+    <span class="toast-icon">📡</span>
+    <div class="toast-body">
+        <strong>Instalar StreamHub Pro</strong>
+        <span>Accede sin navegador, sin barra de URL</span>
+    </div>
+    <button id="install-toast-accept">Instalar</button>
+    <button id="install-toast-dismiss" aria-label="Cerrar">✕</button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ── Elementos ─────────────────────────────────────────────
+    const btnAce     = document.getElementById('btn-acestream');
+    const btnTdt     = document.getElementById('btn-tdt');
+    const btnRuntime = document.getElementById('btn-runtime');
+    const btnRakuten = document.getElementById('btn-rakuten');
+    const fileInput  = document.getElementById('m3u-file');
+    const statusBar  = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+    const sourceTag  = document.getElementById('source-tag');
+    const overlay    = document.getElementById('loading-overlay');
+    const allTabs    = [btnAce, btnTdt, btnRuntime, btnRakuten];
+
+    let playerInstance = null;
+    const cache = { tdt: null, runtime: null, rakuten: null };
+
+    const URLS = {
+        tdt:     "listas/tv.m3u",
+        runtime: "listas/TV-RuntimeTV.m3u",
+        rakuten: "listas/TV-Rakuten-TV.m3u"
+    };
+
+    // ── Canales Ace Stream ────────────────────────────────────
+    const canalesAce = [
+        { title: "BALONCESTO", folder: [
+            { title: "DAZN Baloncesto 720p ★★",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=9dd9cd78f0b08097a0ad290606dbbee999709fa5" },
+            { title: "DAZN Baloncesto 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=6fbd92735502bdebbf1ea58f4298e49759c0cf07" }
+        ]},
+        { title: "EUROSPORT", folder: [
+            { title: "Eurosport 1 720p ★★",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=313213b3b99c0f7437f68c8ea5a7b2b6d7b8a153" },
+            { title: "Eurosport 1 1080p ★",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=48a589dbeab3544662fafd79888aada7d834cfe9" },
+            { title: "Eurosport 1 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=8522af51ae7189b12effabbb448dcb707195ce1a" }
+        ]},
+        { title: "HYPERMOTION", folder: [
+            { title: "DAZN LaLiga 1 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=6ed2ba1ebe9f7f3fde7bb7f4f7a11eef23d5aaa1" },
+            { title: "DAZN LaLiga 2 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=b37d8b3c9e40cde9df0f218bd11c3c9e5c7f4b29" }
+        ]},
+        { title: "MOVISTAR", folder: [
+            { title: "Movistar Plus+ 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=1ab443f5b4beb6d586f19e8b25b9f9646cf2ab78" }
+        ]},
+        { title: "MOVISTAR DEPORTES", folder: [
+            { title: "M+ Golf 1080p ★",       file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=9bb2a7dc6c6a296609df8cc50e742a78194f7530" },
+            { title: "M+ Vamos 1080p ★★",     file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=7e4f6eb38e0d5ef52b7f8b96eb80c1d8c87dad16" },
+            { title: "M+ Vamos 3 1080p ★ (1)", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=a9299052e9a16e5e2924e1fdd00b877c374f9e96" },
+            { title: "M+ Vamos 3 1080p ★ (2)", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=b46a524780cf0ac5e533491fe79389d6198acf2c" }
+        ]},
+        { title: "TDT", folder: [
+            { title: "La 1 TVE ★★ (1)",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=379192c3ee5a15570e2c685179bc53cb7133cc6c" },
+            { title: "La 1 TVE ★★ (2)",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=979d3b873871a5a9a56d3eb481ca77b707e01102" },
+            { title: "La 2 TVE 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=b80cd193286a7df788c07649667c1e6f64fc9dc7" }
+        ]},
+        { title: "DEPORTES", folder: [
+            { title: "Direct Sport 1 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=1b25b195b1b84d4b96830410657718e9e275ad49" },
+            { title: "Esport3 720p ★★",         file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=ed6524f8f73c30cf102fde66f2cb520f4b5842e3" },
+            { title: "Teledeporte 1080p ★★",    file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=77cf022557c56cdf8d8115f50e61f846ad72ee05" },
+            { title: "TV5Monde Europe ★",       file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=59f2d0e15869d73f19d7ac441d5aedffb6c4ebb8" }
+        ]},
+        { title: "MUNDIAL", folder: [
+            { title: "DAZN Mundial 1 ★",  file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=ccfde4bc75d14c79dd09af72434568a0e732d507" },
+            { title: "DAZN Mundial 1 ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=414222dc7b69a626f29eb964450dae44b3bc9b36" }
+        ]},
+        { title: "TENNIS", folder: [
+            { title: "Tennis Channel 1080p ★★", file: "http://127.0.0.1:6878/ace/manifest.m3u8?id=43c549e5781f5a923b76f8f29cde122b5be164eb" }
+        ]}
+    ];
+
+    // ── Status helper ─────────────────────────────────────────
+    function setStatus(msg, state = '', tag = '') {
+        statusText.textContent = msg;
+        statusBar.className = 'status-bar' + (state ? ' ' + state : '');
+        if (tag) {
+            sourceTag.textContent = tag;
+            sourceTag.classList.add('visible');
+        } else {
+            sourceTag.classList.remove('visible');
+        }
+    }
+
+    // ── Loading overlay ───────────────────────────────────────
+    function showOverlay() { overlay.classList.remove('hidden'); }
+    function hideOverlay() {
+        setTimeout(() => overlay.classList.add('hidden'), 600);
+    }
+
+    // ── Cargar en player ─────────────────────────────────────
+    function cargar(lista) {
+        if (typeof Playerjs === 'undefined') {
+            setStatus('Error: playerjs.js no encontrado.', 'err');
+            hideOverlay();
+            return;
+        }
+        if (playerInstance) {
+            try { playerInstance.api('stop'); } catch(e) {}
+        }
+        document.querySelector('.video-wrap').querySelector('.video-wrap > :not(.loading-overlay)') ;
+        const wrap = document.querySelector('.video-wrap');
+        // Preserve overlay, rebuild player div
+        overlay.classList.remove('hidden');
+        const old = document.getElementById('player');
+        if (old) old.remove();
+        const div = document.createElement('div');
+        div.id = 'player';
+        wrap.appendChild(div);
+
+        playerInstance = new Playerjs({ id: 'player', file: lista, autoplay: 1 });
+        hideOverlay();
+    }
+
+    // ── M3U → PlayerJS ───────────────────────────────────────
+    function parsearM3U(raw) {
+        const lineas = raw.split(/\r?\n/);
+        const grupos = {};
+        let tmp = null;
+        for (const linea of lineas) {
+            const l = linea.trim();
+            if (l.startsWith('#EXTINF:')) {
+                tmp = {};
+                const g = l.match(/group-title="([^"]+)"/i);
+                tmp.grupo = g ? g[1].toUpperCase() : 'CANALES';
+                const ci = l.lastIndexOf(',');
+                tmp.title = ci !== -1 ? l.substring(ci + 1).trim() : 'Canal';
+            } else if (l && !l.startsWith('#') && tmp) {
+                let url = l;
+                const aceHash = url.match(/[a-fA-F0-9]{40}/);
+                if (url.startsWith('acestream://') || aceHash) {
+                    if (aceHash) url = `http://127.0.0.1:6878/ace/manifest.m3u8?id=${aceHash[0]}`;
+                }
+                tmp.file = url;
+                if (!grupos[tmp.grupo]) grupos[tmp.grupo] = [];
+                grupos[tmp.grupo].push({ title: tmp.title, file: tmp.file });
+                tmp = null;
+            }
+        }
+        return Object.keys(grupos).map(k => ({ title: k, folder: grupos[k] }));
+    }
+
+    // ── Activar tab ──────────────────────────────────────────
+    function activarTab(btn) {
+        allTabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+    }
+
+    // ── Carga online ─────────────────────────────────────────
+    async function cargarOnline(clave, nombre, btn, tag) {
+        activarTab(btn);
+        if (cache[clave]) {
+            setStatus(`${nombre} — ${contarCanales(cache[clave])} canales`, 'ok', tag);
+            cargar(cache[clave]);
+            return;
+        }
+        setStatus(`Descargando lista de ${nombre}...`, 'loading', tag);
+        showOverlay();
+        try {
+            const r = await fetch(URLS[clave]);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const txt = await r.text();
+            const lista = parsearM3U(txt);
+            if (!lista.length) throw new Error('Lista vacía');
+            cache[clave] = lista;
+            setStatus(`${nombre} — ${contarCanales(lista)} canales`, 'ok', tag);
+            cargar(lista);
+        } catch(e) {
+            console.error(e);
+            setStatus(`No se pudo cargar ${nombre}. ¿Existe la ruta "${URLS[clave]}"?`, 'err', tag);
+            hideOverlay();
+            activarTab(btnAce);
+            btnAce.setAttribute('aria-selected', 'true');
+        }
+    }
+
+    function contarCanales(lista) {
+        return lista.reduce((acc, g) => acc + (g.folder ? g.folder.length : 1), 0);
+    }
+
+    // ── Eventos botones ──────────────────────────────────────
+    btnAce.addEventListener('click', () => {
+        activarTab(btnAce);
+        const total = contarCanales(canalesAce);
+        setStatus(`Ace Stream activo — ${total} canales (requiere motor local)`, 'ok', 'ACE');
+        cargar(canalesAce);
+    });
+
+    btnTdt.addEventListener('click',     () => cargarOnline('tdt',     'TDT Channels', btnTdt,     'TDT'));
+    btnRuntime.addEventListener('click', () => cargarOnline('runtime', 'Runtime TV',   btnRuntime, 'RUNTIME'));
+    btnRakuten.addEventListener('click', () => cargarOnline('rakuten', 'Rakuten TV',   btnRakuten, 'RAKUTEN'));
+
+    // ── Subida archivo local ──────────────────────────────────
+    fileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        allTabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+        setStatus(`Leyendo ${file.name}...`, 'loading', 'LOCAL');
+        showOverlay();
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const lista = parsearM3U(ev.target.result);
+            if (lista.length) {
+                setStatus(`${file.name} — ${contarCanales(lista)} canales`, 'ok', 'LOCAL');
+                cargar(lista);
+            } else {
+                setStatus('El archivo M3U no tiene canales reconocibles.', 'err');
+                hideOverlay();
+                btnAce.click();
+            }
+            fileInput.value = '';
+        };
+        reader.readAsText(file);
+    });
+
+    // ── Arranque ─────────────────────────────────────────────
+    setTimeout(() => {
+        setStatus(`Ace Stream — ${contarCanales(canalesAce)} canales listos`, 'ok', 'ACE');
+        cargar(canalesAce);
+    }, 200);
+
+    // ── PWA Install ──────────────────────────────────────────
+    let deferredPrompt = null;
+    const btnInstall     = document.getElementById('btn-install');
+    const toast          = document.getElementById('install-toast');
+    const toastAccept    = document.getElementById('install-toast-accept');
+    const toastDismiss   = document.getElementById('install-toast-dismiss');
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        btnInstall.classList.add('visible');
+        // Mostrar toast a los 3 s si no lo han cerrado antes
+        setTimeout(() => toast.classList.add('show'), 3000);
+    });
+
+    async function instalar() {
+        if (!deferredPrompt) return;
+        toast.classList.remove('show');
+        btnInstall.classList.remove('visible');
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') setStatus('¡App instalada correctamente!', 'ok', 'PWA');
+        deferredPrompt = null;
+    }
+
+    btnInstall.addEventListener('click', instalar);
+    toastAccept.addEventListener('click', instalar);
+    toastDismiss.addEventListener('click', () => toast.classList.remove('show'));
+
+    window.addEventListener('appinstalled', () => {
+        btnInstall.classList.remove('visible');
+        toast.classList.remove('show');
+        setStatus('StreamHub Pro instalado como app', 'ok', 'PWA');
+    });
+
+});
+
+// ── Service Worker ───────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+                console.log('[SW] Registrado:', reg.scope);
+                // Notifica si hay actualización disponible
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    nw.addEventListener('statechange', () => {
+                        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('[SW] Nueva versión disponible — recarga para actualizar.');
+                        }
+                    });
+                });
+            })
+            .catch(err => console.warn('[SW] Error al registrar:', err));
+    });
+}
+
+// ── Ayuda ────────────────────────────────────────────────────
+function mostrarAyuda() {
+    alert(
+        'StreamHub Pro — Ayuda\n\n' +
+        '⚡ Ace Stream: Requiere el motor AceStream ejecutándose en tu PC (puerto 6878).\n' +
+        '📺 TDT / 🎬 Runtime / 🔴 Rakuten: Listas M3U en la carpeta "listas/" de tu proyecto GitHub.\n' +
+        '📂 Lista local: Carga cualquier .m3u o .m3u8 directamente desde tu dispositivo.\n\n' +
+        '⬇️ Botón "Instalar App": Aparece automáticamente si el navegador detecta que la página puede instalarse como PWA (requiere HTTPS y manifest.json).'
+    );
+}
+</script>
+
+</body>
+</html>
